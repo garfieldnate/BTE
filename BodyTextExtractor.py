@@ -2,8 +2,9 @@
 from __future__ import print_function
 
 import logging
-logger = logging.getLogger(__name__)
 import sys
+
+logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 0):
     py2 = False
@@ -28,6 +29,7 @@ class HtmlTokenParser(HTMLParser):
     def __init__(self, verbose=0):
         self.tokens = []
         self.binary_tokens = []
+        self.body_start_index = 0
         HTMLParser.__init__(self)
 
     def handle_data(self, data):
@@ -63,27 +65,27 @@ class HtmlBodyTextExtractor(HtmlTokenParser):
 
     def _encode_binary_tokens(self):
         i = 0
-        for x in self.binary_tokens:
-            if (abs(x + self.encoded[i]) < abs(self.encoded[i])):
+        for token in self.binary_tokens:
+            if abs(token + self.encoded[i]) < abs(self.encoded[i]):
                 self.encoded.append(0)
                 self.total_tokens_before.append(self.total_tokens_before[-1])
                 i += 1
-            self.encoded[i] = self.encoded[i] + x
+            self.encoded[i] = self.encoded[i] + token
             self.total_tokens_before[i] = self.total_tokens_before[i] + 1
         # total_tokens_before works better in the rest of the class if we shift all values up one index
         self.total_tokens_before.insert(0, 0)
 
     def _initialise_lookups(self):
         t = 0
-        for x in self.encoded:
-            if (x > 0):
-                t = t + x
+        for token in self.encoded:
+            if token > 0:
+                t = t + token
             self.lookup0N.append(t)
         self.encoded.reverse()
         t = 0
-        for x in self.encoded:
-            if (x > 0):
-                t = t + x
+        for token in self.encoded:
+            if token > 0:
+                t = t + token
             self.lookupN0.append(t)
         self.encoded.reverse()
         self.lookupN0.reverse()
@@ -118,16 +120,17 @@ class HtmlBodyTextExtractor(HtmlTokenParser):
 
     def _objective_fcn_old(self, i, j):
         return_val = self.lookup0N[i] + self.lookupN0[j]
-        for x in self.encoded[i:j]:
-            if (x < 0):
-                return_val = return_val - x
+        for token in self.encoded[i:j]:
+            if token < 0:
+                return_val = return_val - token
         return return_val
 
-    def _is_tag(self, s):
-        if (s[0] == '<' and s[-1] == '>'):
-            return (1)
+    @staticmethod
+    def _is_tag(s):
+        if s[0] == '<' and s[-1] == '>':
+            return 1
         else:
-            return (0)
+            return 0
 
     '''
     Method which uses the modified version of _objective_fcn, this function is in O(n^2)
@@ -147,32 +150,24 @@ class HtmlBodyTextExtractor(HtmlTokenParser):
                 if self.encoded[j] > 0:
                     continue
                 obj = self._objective_fcn(i, j)
-                if (obj > obj_max):
+                if obj > obj_max:
                     obj_max = obj
                     i_max = i
                     j_max = j
         start = self.total_tokens_before[i_max]
         end = self.total_tokens_before[j_max]
 
-        self.body_txt = " ".join(x for x in self.tokens[start:end] if not self._is_tag(x))
+        self.body_txt = " ".join(txt for txt in self.tokens[start:end] if not self._is_tag(txt))
 
-        # This is added for testing purposes, so that the old and new versions produce the same string.
-        self.body_txt = self.body_txt + " "
+        return self.body_txt
 
-        return (self.body_txt)
-
-    def summary(self, start=0, bytes=255):
-        if (not (self.body_txt)):
+    def summary(self, start=0, length=255):
+        if not self.body_txt:
             self.body_text()
-        return (self.body_txt[start:(start + bytes)])
-
-    '''
-    Modified to use the more efficient join method for building the string
-    '''
+        return self.body_txt[start:(start + length)]
 
     def full_text(self):
-        ft = ""
-        ft = " ".join(x for x in self.tokens if not self._is_tag(x))
+        ft = " ".join(txt for txt in self.tokens if not self._is_tag(txt))
         return ft
 
 
@@ -182,7 +177,7 @@ if __name__ == '__main__':
     p.feed(html)
     p.close()
     x = p.body_text()
-    print("\nBodytext:\n", p.body_text())
+    print("\nBody text:\n", p.body_text())
 
 # (c) 2001 Aidan Finn
 # Released under the terms of the GNU GPL
