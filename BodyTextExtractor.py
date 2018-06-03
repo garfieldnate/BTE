@@ -4,6 +4,8 @@ from __future__ import print_function
 import logging
 import sys
 
+from bs4 import BeautifulSoup
+
 logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 0):
@@ -57,6 +59,19 @@ class HtmlBodyTextExtractor(HtmlTokenParser):
         self.num_tags_until = [0]
         self.num_tags_after = [0]
         self.body_txt = ""
+
+    def feed(self, text):
+        text = self._remove_unreadable(text)
+        HtmlTokenParser.feed(self, text)
+
+    def _remove_unreadable(self, text):
+        """Remove unreadable blocks (head, style, script) from the text.
+        This is a necessary pre-processing step because the simple objective function often
+        picks long script blocks."""
+        soup = BeautifulSoup(text, 'lxml')
+        for unreadable in soup.find_all(['head', 'script', 'style']):
+            unreadable.extract()
+        return str(soup)
 
     def close(self):
         HtmlTokenParser.close(self)
@@ -150,6 +165,13 @@ class HtmlBodyTextExtractor(HtmlTokenParser):
 
 
 if __name__ == '__main__':
+    # with open(sys.argv[1]) as fp:
+    #     soup = BeautifulSoup(fp, 'lxml')
+    # for unreadable in soup.find_all(['head', 'script', 'style']):
+    #     unreadable.extract()
+    # print(soup.get_text())
+    # html = str(soup)
+    # print(html)
     html = open(sys.argv[1]).read()
     p = HtmlBodyTextExtractor()
     p.feed(html)
