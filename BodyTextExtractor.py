@@ -15,6 +15,9 @@ else:
 
 if py2:
     from HTMLParser import HTMLParser
+    # see https://stackoverflow.com/a/21190382/474819
+    reload(sys)
+    sys.setdefaultencoding('utf8')
 else:
     from html.parser import HTMLParser
 
